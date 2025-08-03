@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Interativo Avançado</title>
+    <style>
+        /* Estilos Gerais */
+        :root {
+            --primary-color: #5b21b6;
+            --success-color: #16a34a;
+            --danger-color: #dc2626;
+            --light-color: #f8f9fa;
+            --dark-color: #1f2937;
+            --bg-color: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+
+        /* Container do Quiz */
+        .quiz-container { background-color: #ffffff; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); width: 100%; max-width: 700px; overflow: hidden; display: flex; flex-direction: column; }
+        .quiz-header { background-color: var(--primary-color); color: white; padding: 1.5rem 2rem; text-align: center; }
+        .quiz-header h1 { font-size: 1.5rem; }
+
+        /* Navegação Paginada */
+        .question-nav-wrapper { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background-color: #f9fafb; border-bottom: 1px solid var(--border-color); }
+        .nav-pag-btn { background-color: #fff; border: 1px solid var(--border-color); border-radius: 50%; width: 35px; height: 35px; font-size: 1.2rem; cursor: pointer; transition: all 0.2s ease; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .nav-pag-btn:hover:not(:disabled) { background-color: #f3f4f6; }
+        .nav-pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .question-nav-container { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; flex-grow: 1; margin: 0 1rem; }
+        .q-number-btn { background-color: #fff; border: 1px solid var(--border-color); border-radius: 5px; width: 35px; height: 35px; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; font-weight: 500; }
+        .q-number-btn:hover { background-color: #f3f4f6; border-color: #d1d5db; }
+        .q-number-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .q-number-btn.answered-correct { background-color: #dcfce7; color: var(--success-color); border-color: var(--success-color); }
+        .q-number-btn.answered-incorrect { background-color: #fee2e2; color: var(--danger-color); border-color: var(--danger-color); }
+
+        .quiz-body { padding: 1.5rem 2rem; }
+        #question-text { font-size: 1.2rem; margin-bottom: 2rem; color: var(--dark-color); line-height: 1.5; min-height: 80px; }
+        .options-container { display: flex; flex-direction: column; gap: 1rem; }
+        .option { background-color: var(--light-color); border: 2px solid var(--border-color); border-radius: 10px; padding: 1rem; cursor: pointer; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 1rem; }
+        .option:hover:not(.disabled) { border-color: var(--primary-color); transform: translateY(-2px); }
+        .option.correct { background-color: #dcfce7; border-color: var(--success-color); color: var(--success-color); font-weight: bold; }
+        .option.incorrect { background-color: #fee2e2; border-color: var(--danger-color); color: var(--danger-color); font-weight: bold; }
+        .option.disabled { pointer-events: none; }
+        .option-letter { background-color: #a78bfa; color: white; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; transition: background-color 0.2s ease; }
+        .option.correct .option-letter { background-color: var(--success-color); }
+        .option.incorrect .option-letter { background-color: var(--danger-color); }
+
+        /* Modal de Feedback */
+        .feedback-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; z-index: 1000; }
+        .feedback-modal.visible { opacity: 1; pointer-events: all; }
+        .modal-content { background: white; border-radius: 15px; padding: 2rem; text-align: center; width: 90%; max-width: 500px; transform: scale(0.9); transition: transform 0.3s ease-in-out; }
+        .feedback-modal.visible .modal-content { transform: scale(1); }
+        .modal-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .modal-title { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: bold; }
+        .modal-explanation { font-size: 1rem; color: #4b5563; line-height: 1.6; margin-bottom: 1.5rem; text-align: left; }
+        .modal-button { background-color: var(--primary-color); color: white; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: background-color 0.2s ease-in-out; width: 100%; }
+        .modal-button:hover { background-color: #4c1d95; }
+
+        /* Rodapé com botão de finalizar (inicialmente escondido) */
+        .quiz-footer { padding: 1.5rem 2rem; text-align: center; border-top: 1px solid var(--border-color); background-color: #f9fafb; display: none; }
+        .quiz-footer.visible { display: block; }
+        #finish-btn { background-color: var(--success-color); color: white; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; font-weight: bold; }
+        #finish-btn:hover { background-color: #15803d; }
+    </style>
+</head>
+<body>
+
+    <div class="quiz-container">
+        <div class="quiz-header">
+            <h1>Quiz sobre Metabolismo</h1>
+        </div>
+        <div class="question-nav-wrapper">
+            <button id="nav-page-prev" class="nav-pag-btn">&lt;</button>
+            <div id="question-nav-container" class="question-nav-container"></div>
+            <button id="nav-page-next" class="nav-pag-btn">&gt;</button>
+        </div>
+        <div class="quiz-body">
+            <h2 id="question-text"></h2>
+            <div id="options-container" class="options-container"></div>
+        </div>
+        <div id="quiz-footer" class="quiz-footer">
+            <button id="finish-btn">Finalizar Quiz</button>
+        </div>
+    </div>
+
+    <div id="feedback-modal" class="feedback-modal">
+        <div class="modal-content">
+            <div id="modal-icon" class="modal-icon"></div>
+            <h2 id="modal-title" class="modal-title"></h2>
+            <p id="modal-explanation" class="modal-explanation"></p>
+            <button id="modal-next-btn" class="modal-button">Continuar</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const quizData = [
+                // Bloco 1 de questões
+                { question: "Em relação à obesidade, podemos afirmar que:", options: [ { text: "O componente genético é mais importante que o ambiental.", correct: false }, { text: "O componente ambiental é mais importante que o genético.", correct: true }, { text: "Dependendo do fator predominante (genético ou ambiental) o tratamento é diferente.", correct: false }, { text: "Só se devem usar medicamentos no tratamento da obesidade caso o IMC seja >30kg/m2.", correct: false }, { text: "NDA", correct: false } ] },
+                {
+                    question: "Assinale o aminoácido que é precursor do neurotransmissor que age no núcleo da fome no hipotálamo.",
+                    options: [ { text: "Taurina", correct: false }, { text: "Valina", correct: false }, { text: "Isoleucina", correct: false }, { text: "Fenilalanina", correct: true }, { text: "Triptofano", correct: false } ],
+                    explanation: "Noradrenalina e dopamina agem no núcleo da fome. AMBAS vêm da L-fenilalanina. FENILALANINA -> DiOxFenilAlanina (DOPA) -> DOPAMINA -> NORADRENALINA."
+                },
+                {
+                    question: "A partir de qual valor de IMC a medição da circunferência abdominal começa a perder o seu valor?",
+                    options: [ { text: "IMC de 30kg/m2", correct: false }, { text: "IMC de 27kg/m2 com a presença de pelo menos uma comorbidade", correct: false }, { text: "IMC a partir de 35kg/m2", correct: true }, { text: "IMC a partir de 25kg/m2, com presença de pelo menos uma comorbidade", correct: false }, { text: "NDA", correct: false } ],
+                    explanation: "A partir de um IMC de 35 kg/m², o risco cardiovascular já é considerado tão elevado que a medida da circunferência abdominal acrescenta pouca informação prognóstica adicional."
+                },
+                {
+                    question: "Assinale a alternativa que NÃO é uma comorbidade da Obesidade e da Síndrome Metabólica?",
+                    options: [ { text: "Apneia obstrutiva do sono", correct: false }, { text: "Hipercolesterolemia", correct: false }, { text: "Hiperinsulinemia", correct: false }, { text: "Hipercortisolismo secundário", correct: false }, { text: "Paralisia do sono", correct: true } ],
+                    explanation: "A paralisia do sono é um distúrbio do sono (parassonia) e não uma comorbidade diretamente ligada à síndrome metabólica. As outras opções são consequências ou associações comuns da obesidade."
+                },
+                {
+                    question: "Dos aminoácidos abaixo, qual o que está diretamente envolvido na formação do neurotransmissor que age na SACIEDADE?",
+                    options: [ { text: "Triptofano", correct: true }, { text: "Isoleucina", correct: false }, { text: "Fenilalanina", correct: false }, { text: "Valina", correct: false }, { text: "Glutamina", correct: false } ],
+                    explanation: "O Triptofano é o precursor da Serotonina, que age no Núcleo Ventromedial (NVM) do hipotálamo, também conhecido como o centro da saciedade."
+                },
+                { question: "As principais alterações lipídicas observadas na obesidade e Síndrome Metabólica são:", options: [ { text: "Aumento de triglicérides, aumento de HDL, aumento de Apolipoproteína B", correct: false }, { text: "Aumento de colesterol total, diminuição de HDL e aumento das frações pequenas e densas do LDL colesterol", correct: true }, { text: "Diminuição do VLDL, aumento dos triglicérides e aumento das frações pequenas e densas do LDL colesterol", correct: false }, { text: "Aumento dos triglicérides, diminuição do HDL e diminuição da Apolipoproteína B", correct: false }, { text: "Aumento do colesterol total, aumento do HDL e aumento da Apolipoproteína A1", correct: false } ] },
+                { question: "Assinale a alternativa que contenha 3 neurotransmissores, com ação ANOREXÍGENA e que sejam formados por estímulos no trato digestivo.", options: [ { text: "PYY, GLP-1, Grelina", correct: false }, { text: "GLP-1, DPP4, CCK", correct: false }, { text: "GLP-1, CCK, Oxintomodulina", correct: true }, { text: "GLP-1, GIP, NPY", correct: false }, { text: "GLP-1, CART e beta endorfina", correct: false } ] },
+                { question: "Qual a alternativa que contém medicamentos com ação EXCLUSIVAMENTE serotoninérgica?", options: [ { text: "Anfepramona , Fluoxetina, e Sertralina", correct: false }, { text: "Sibutramina, Ioimbina e Sertralina", correct: false }, { text: "Sertralina , Fluoxetina e Sibutramina", correct: false }, { text: "Amitriptilina, Sertralina e Fluoxetina", correct: false }, { text: "NDA", correct: true } ] },
+                { question: "Em pacientes com quadro de obesidade, mas com história de crise convulsiva está contra indicado o uso de qual fármaco dos abaixo, por alterar o limiar convulsivo?", options: [ { text: "Sibutramina", correct: false }, { text: "Orlistate", correct: false }, { text: "Topiramato", correct: false }, { text: "Bupropiona", correct: true }, { text: "Naltrexona", correct: false } ] },
+                {
+                    question: "A Lorcaserina é um medicamento antiobesidade que age como agonista seletivo dos receptores serotoninérgicos do tipo _____?",
+                    options: [ { text: "5HT2a", correct: false }, { text: "5HT2b", correct: false }, { text: "5HT2c", correct: true }, { text: "5HT1a", correct: false }, { text: "5HT1b", correct: false } ],
+                    explanation: "A Lorcaserina atua especificamente nos receptores 5-HT2C localizados no hipotálamo para promover a saciedade."
+                },
+                // Bloco 2 de questões
+                { question: "O uso do topiramato em obesos, deve ser evitado em pacientes que apresentem história de:", options: [ { text: "Litíase renal", correct: true }, { text: "Hipercalemia", correct: false }, { text: "Hipercalcemia", correct: false }, { text: "Crise convulsiva", correct: false }, { text: "Litíase biliar", correct: false } ] },
+                {
+                    question: "Qual é o mecanismo fisiopatológico, que ocorre no fígado e é responsável pela hiperglicemia dos pacientes obesos e com síndrome metabólica?",
+                    options: [ { text: "Hiperinsulinemia", correct: false }, { text: "Glicotoxicidade", correct: false }, { text: "Hipersensibilização da Lipase lipoprotéica", correct: false }, { text: "Excesso de fosfodiesterase nas células hepáticas", correct: false }, { text: "Aumento do afluxo hepático de ácidos graxos livres", correct: true } ],
+                    explanation: "O excesso de Ácidos Graxos Livres (AGL) que chega ao fígado estimula a via da neoglicogênese (produção de glicose pelo fígado), contribuindo para a hiperglicemia."
+                },
+                { question: "Qual medida ao exame físico do paciente obeso, tem apresentado melhor correlação prognóstica com desfechos cardiovasculares?", options: [ { text: "Circunferência da cintura", correct: true }, { text: "IMC", correct: false }, { text: "Perímetro cervical", correct: false }, { text: "Circunferência do quadril", correct: false }, { text: "Peso corporal", correct: false } ] },
+                { question: "A frase “mudanças reversíveis e herdáveis no genoma funcional que não alteram a sequência de nucleotídeos do DNA” refere-se ao conceito de:", options: [ { text: "Programação metabólica", correct: false }, { text: "Epigenética", correct: true }, { text: "Plasticidade", correct: false }, { text: "Nutrogenômica", correct: false }, { text: "Metabolômica", correct: false } ] },
+                { question: "Os fatores metabólicos envolvidos na etiologia da obesidade são:", options: [ { text: "Hiperinsulinismo e insulino resistência", correct: true }, { text: "Diminuição da atividade da lipase lipoprotéica", correct: false }, { text: "Compulsão alimentar e aumento de leptina", correct: false }, { text: "Aumento da grelina e da leptina, além de uma redução do gasto metabólico", correct: false }, { text: "Hiperinsulinismo e diminuição da atividade simpática", correct: false } ] },
+                {
+                    question: "Assinale a alternativa correta:",
+                    options: [ { text: "A insônia leva a aumento de grelina e PYY", correct: false }, { text: "A expressão gênica da obesidade se manifesta pelo ambiente poligênico", correct: false }, { text: "Fetos obesos ou desnutridos são estímulos para a desnutrição energético protéica", correct: false }, { text: "Qualquer desequilíbrio entre nutroneurotransmissores intestinais causam sobrepeso", correct: false }, { text: "Todas as anteriores estão incorretas", correct: true } ],
+                    explanation: "A) Insônia aumenta grelina, mas diminui PYY. B) O ambiente é o gatilho. C) Fetos obesos têm hiperinsulinemia, não DEP. D) A relação não é tão direta."
+                },
+                { question: "No que se refere ao uso de sacietógenos no tratamento da obesidade:", options: [ { text: "Devemos tatear a dose até conseguirmos deixar o paciente menos ansioso.", correct: false }, { text: "A dose utilizada são via de regra menores que as utilizadas no tratamento da depressão", correct: false }, { text: "A dose utilizada são via de regra maiores que as utilizadas no tratamento da depressão", correct: true }, { text: "Seu efeito não é dose dependente", correct: false }, { text: "NDA", correct: false } ] },
+                {
+                    question: "Assinale abaixo a substância produzida pelo adipócito e que tem provável efeito benéfico no organismo:",
+                    options: [ { text: "Adiponectina", correct: true }, { text: "Resistina", correct: false }, { text: "Interleucina 6", correct: false }, { text: "TNF alfa", correct: false }, { text: "Testosterona", correct: false } ],
+                    explanation: "A adiponectina é uma 'adipocina do bem', com ações anti-inflamatórias e de melhora da sensibilidade à insulina. As outras substâncias listadas (Resistina, IL-6, TNF-alfa) são pró-inflamatórias."
+                },
+                {
+                    question: "Paciente de 45 anos... fraqueza intensa... confusão mental, ataxia, diarreia, dermatite...",
+                    options: [ { text: "Ferro e proteína", correct: false }, { text: "Niacina e zinco", correct: false }, { text: "B1 e B2", correct: false }, { text: "Todas anteriores", correct: true }, { text: "Somente B e C", correct: false } ],
+                    explanation: "O quadro clínico sugere múltiplas deficiências: fraqueza (déficit protéico/ferro), queilite (B2), diarreia/lesões de pele (zinco), e o quadro neurológico + dermatite (Pelagra/B3)."
+                }
+            ];
+
+            const ITEMS_PER_PAGE = 10;
+            let currentNavPage = 0;
+            let currentQuestionIndex = 0;
+            let userAnswers = new Array(quizData.length).fill(null);
+
+            const questionNavContainer = document.getElementById('question-nav-container');
+            const navPagePrevBtn = document.getElementById('nav-page-prev');
+            const navPageNextBtn = document.getElementById('nav-page-next');
+            const questionText = document.getElementById('question-text');
+            const optionsContainer = document.getElementById('options-container');
+            const finishButton = document.getElementById('finish-btn');
+            const quizFooter = document.getElementById('quiz-footer');
+            const quizContainer = document.querySelector('.quiz-container');
+            const feedbackModal = document.getElementById('feedback-modal');
+            const modalIcon = document.getElementById('modal-icon');
+            const modalTitle = document.getElementById('modal-title');
+            const modalExplanation = document.getElementById('modal-explanation');
+            const modalNextButton = document.getElementById('modal-next-btn');
+
+            function setupNavigation() {
+                const totalPages = Math.ceil(quizData.length / ITEMS_PER_PAGE);
+                questionNavContainer.innerHTML = '';
+
+                const start = currentNavPage * ITEMS_PER_PAGE;
+                const end = Math.min(start + ITEMS_PER_PAGE, quizData.length);
+
+                for (let i = start; i < end; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'q-number-btn';
+                    btn.innerText = i + 1;
+                    btn.addEventListener('click', () => {
+                        currentQuestionIndex = i;
+                        loadQuestion();
+                    });
+                    questionNavContainer.appendChild(btn);
+                }
+
+                navPagePrevBtn.disabled = currentNavPage === 0;
+                navPageNextBtn.disabled = currentNavPage >= totalPages - 1;
+                updateNavUI();
+            }
+
+            function updateNavUI() {
+                const navButtons = questionNavContainer.querySelectorAll('.q-number-btn');
+                navButtons.forEach(btn => {
+                    const index = parseInt(btn.innerText) - 1;
+                    btn.classList.remove('active', 'answered-correct', 'answered-incorrect');
+                    if (userAnswers[index] !== null) {
+                        btn.classList.add(userAnswers[index].isCorrect ? 'answered-correct' : 'answered-incorrect');
+                    }
+                    if (index === currentQuestionIndex) {
+                        btn.classList.add('active');
+                    }
+                });
+
+                const allAnswered = userAnswers.every(answer => answer !== null);
+                if(allAnswered) {
+                    quizFooter.classList.add('visible');
+                } else {
+                    quizFooter.classList.remove('visible');
+                }
+            }
+
+            function loadQuestion() {
+                const currentQuestion = quizData[currentQuestionIndex];
+                // *** MUDANÇA AQUI: Alterando a cor do número da questão para preto ***
+                questionText.innerHTML = `<span style="font-weight: 500; color: #1f2937;">Questão ${currentQuestionIndex + 1}:</span> ${currentQuestion.question}`;
+                optionsContainer.innerHTML = '';
+                
+                const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                currentQuestion.options.forEach((option, index) => {
+                    const optionElement = document.createElement('div');
+                    optionElement.classList.add('option');
+                    optionElement.innerHTML = `<div class="option-letter">${letters[index]}</div><span>${option.text}</span>`;
+                    optionElement.addEventListener('click', () => handleOptionClick(index));
+                    optionsContainer.appendChild(optionElement);
+                });
+
+                if (userAnswers[currentQuestionIndex] !== null) {
+                    showAnswerState(userAnswers[currentQuestionIndex].optionIndex);
+                }
+                updateNavUI();
+            }
+
+            function handleOptionClick(selectedIndex) {
+                if (userAnswers[currentQuestionIndex] !== null) return;
+
+                const currentQuestion = quizData[currentQuestionIndex];
+                const isCorrect = currentQuestion.options[selectedIndex].correct;
+                userAnswers[currentQuestionIndex] = { optionIndex: selectedIndex, isCorrect: isCorrect };
+
+                showAnswerState(selectedIndex);
+
+                if (isCorrect) {
+                    modalIcon.innerText = '✅';
+                    modalTitle.innerText = 'Resposta Correta!';
+                    modalTitle.style.color = 'var(--success-color)';
+                } else {
+                    modalIcon.innerText = '❌';
+                    modalTitle.innerText = 'Resposta Incorreta!';
+                    modalTitle.style.color = 'var(--danger-color)';
+                }
+                
+                modalExplanation.innerText = currentQuestion.explanation || "Não há comentário para esta questão.";
+                feedbackModal.classList.add('visible');
+                updateNavUI();
+            }
+
+            function showAnswerState(selectedIndex) {
+                const currentQuestion = quizData[currentQuestionIndex];
+                const isCorrect = currentQuestion.options[selectedIndex].correct;
+                const options = optionsContainer.querySelectorAll('.option');
+
+                options.forEach(opt => opt.classList.add('disabled'));
+
+                if (isCorrect) {
+                    options[selectedIndex].classList.add('correct');
+                } else {
+                    options[selectedIndex].classList.add('incorrect');
+                    const correctIndex = currentQuestion.options.findIndex(opt => opt.correct);
+                    if (correctIndex !== -1) {
+                        options[correctIndex].classList.add('correct');
+                    }
+                }
+            }
+            
+            function showFinalResults() {
+                const score = userAnswers.filter(answer => answer?.isCorrect).length;
+                const percentage = Math.round((score / quizData.length) * 100);
+                let message = '';
+                if (percentage === 100) message = 'Excelente! Você gabaritou! 🚀';
+                else if (percentage >= 70) message = 'Ótimo trabalho! 👍';
+                else if (percentage >= 50) message = 'Bom resultado! Continue estudando. 😊';
+                else message = 'Não desanime, o aprendizado é uma jornada. 💪';
+
+                quizContainer.innerHTML = `
+                    <div class="quiz-header"><h1>Quiz Finalizado!</h1></div>
+                    <div class="quiz-body" style="text-align: center; padding: 2rem;">
+                        <h2 style="font-size: 2rem; margin: 1rem 0; color: var(--dark-color);">${message}</h2>
+                        <p style="font-size: 1.2rem; margin-bottom: 2rem;">Sua pontuação: <strong>${score} de ${quizData.length} (${percentage}%)</strong></p>
+                        <button class="modal-button" style="background-color:var(--primary-color);" onclick="window.location.reload()">Refazer o Quiz</button>
+                    </div>
+                `;
+            }
+
+            navPagePrevBtn.addEventListener('click', () => {
+                if (currentNavPage > 0) {
+                    currentNavPage--;
+                    setupNavigation();
+                }
+            });
+
+            navPageNextBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(quizData.length / ITEMS_PER_PAGE);
+                if (currentNavPage < totalPages - 1) {
+                    currentNavPage++;
+                    setupNavigation();
+                }
+            });
+            
+            modalNextButton.addEventListener('click', () => {
+                feedbackModal.classList.remove('visible');
+                if (currentQuestionIndex < quizData.length - 1) {
+                    currentQuestionIndex++;
+                    loadQuestion();
+                }
+            });
+
+            finishButton.addEventListener('click', showFinalResults);
+            
+            setupNavigation();
+            loadQuestion();
+        });
+    </script>
+</body>
+</html>
